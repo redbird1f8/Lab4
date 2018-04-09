@@ -22,11 +22,16 @@
 #include "utils.h"
 
 int active_child_processes = 0;
+int pnum;
+pid_t *child_arr;
 
 static void sig_alarm(int sigg)
 {
-    kill(0, SIGKILL);
     printf("Time's up!\n");
+    for(int i = 0; i < pnum; ++i)
+    {
+        kill(child_arr[i], SIGTERM);
+    }
     while (active_child_processes >= 0) {
         // your code here
         int wpid = waitpid(-1, NULL, WNOHANG);
@@ -38,17 +43,17 @@ static void sig_alarm(int sigg)
         else
         {
             active_child_processes -= 1;
+        }
     }
-  }
     printf("Exiting!\n");
-    //exit(0);
-    return;
+    exit(0);
+    //return;
 }
 
 int main(int argc, char **argv) {
   int seed = -1;
   int array_size = -1;
-  int pnum = -1;
+  pnum = -1;
   int timeout = 0;
   bool with_files = false;
 
@@ -59,7 +64,7 @@ int main(int argc, char **argv) {
                                       {"array_size", required_argument, 0, 0},
                                       {"pnum", required_argument, 0, 0},
                                       {"by_files", no_argument, 0, 'f'},
-                                      {"timeout", no_argument, 0, 0},
+                                      {"timeout", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
 
     int option_index = 0;
@@ -162,18 +167,16 @@ int main(int argc, char **argv) {
           }
   }
   int pecount = array_size/pnum;
+  child_arr = malloc(pnum*sizeof(pid_t));
   if(signal(SIGALRM, sig_alarm))
   {
       printf("cannot catch SIG_ALARM!\n");
   }
+  alarm(timeout);
   for (int i = 0; i < pnum; i++) {
     pid_t child_pid = fork();
     if (child_pid >= 0) {
-        if(i == 0)
-        {
-            alarm(10);
-            printf("RERE");
-        }
+      child_arr[i] = child_pid;
       // successful fork
       active_child_processes += 1;
       if (child_pid == 0) {
@@ -191,6 +194,7 @@ int main(int argc, char **argv) {
         {
             min_max = GetMinMax(array, i*pecount, (i+1)*pecount); 
         }
+        sleep(11);
         if (with_files) {
           // use files here
           pwrite(io_id, &min_max, 2*sizeof(int), 2*sizeof(int)*i);
